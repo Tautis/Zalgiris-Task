@@ -1,101 +1,177 @@
-import Image from "next/image";
+"use client";
+
+import { useQuery } from '@apollo/client';
+import { GET_TEAMS } from '@/lib/client';
+import Image from 'next/image'
+import Link from 'next/link';
+import dataJSON from '../public/fakeData.json';
+import { useEffect, useState } from 'react';
+
+interface GetTeamsVars {
+  first: number;
+  limit: number;
+  season:number|null;
+}
+
+interface Team {
+  id:number;
+  teamName:string;
+  season:number;
+  finish:string;
+  teamAbbr:string
+}
+interface AllTeams{
+  id:number;
+  season:number;
+}
+interface GetTeamsData{
+  team:Team[]
+  allTeams:AllTeams[]
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [whichTab,setWhichTab] = useState<number|null>(null);
+  const [pagination, setPagination] = useState<number>(1);
+  const [mainData, setMainData] = useState<Team[]>([]);
+  const originalFakeData: Team[]=(dataJSON);
+  const perPage = 50;
+  const [totalPages,setTotalPages] = useState<number>(1);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  const { data, loading, error,refetch } = useQuery<GetTeamsData,GetTeamsVars>(
+    GET_TEAMS,
+    {
+      variables: { first: pagination*25-25, limit:pagination*50,season:whichTab },
+      notifyOnNetworkStatusChange: true,
+      fetchPolicy: 'cache-and-network',
+    }
+  );
+
+  useEffect(() => {
+    if(data){
+      setMainData(data.team);
+    }else{
+      if(whichTab==null){
+
+        setMainData(originalFakeData.slice(0,50));
+      }else{
+        setMainData(originalFakeData.filter((item)=>item.season==2023).slice(0,50))
+      }
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if(data){
+      setTotalPages(Math.ceil(data.allTeams.length/perPage));
+    }
+    else{
+      if(whichTab===null){
+        setTotalPages(Math.ceil(originalFakeData.length/perPage));
+
+      }else{
+        setTotalPages(Math.ceil(originalFakeData.filter((item)=>item.season==2023).length/perPage));
+
+      }
+    }
+  }, [data,mainData]);
+
+  const switchTabs=(tab:number|null)=>{
+    refetch({first:1*25-25,limit:1*50,season:tab}).then((response)=>{
+      if(response?.errors){
+        if(tab===null){
+          setMainData(originalFakeData.slice(0,50));
+          setPagination(1);
+        }
+        else{
+          setMainData(originalFakeData.filter((item)=>item.season==2023).slice(0,50));
+          setPagination(1);
+        }
+      }
+    })
+    setWhichTab(tab);
+  }
+
+  const setSlicedFakeData = (start:number,end:number,filter:number|null) => {
+    if(filter!=null){
+      const slicedData = originalFakeData.filter((item)=>item.season==filter).slice(start,end);
+      console.log(originalFakeData.filter((item)=>{item.season==filter}));
+      setMainData(slicedData);
+    }
+    else{
+      const slicedData = originalFakeData.slice(start,end);
+      console.log(slicedData);
+      setMainData(slicedData);
+    }
+  }
+  const loadNextPage=()=>{
+    setPagination(pagination+1)
+    refetch({first: (pagination+1)*25-25, limit:(pagination+1)*50}).then((response)=>{
+      if(response?.errors){
+        setSlicedFakeData(pagination*perPage,pagination*perPage+perPage,whichTab);
+      }
+    })
+  }
+
+  const loadPrevPage=()=>{
+    setPagination(pagination-1)
+
+    refetch({first: (pagination-1)*25-25, limit:(pagination-1)*50}).then((response)=>{
+      if(response?.errors){
+      setSlicedFakeData((pagination-2)*perPage,(pagination-2)*perPage+perPage,whichTab);
+      }
+    })
+  }
+
+  const loadCurrent=(page:number)=>{
+    setPagination(page);
+    refetch({first:page*25-25,limit:page*50}).then((response)=>{
+      if(response?.errors){
+        setSlicedFakeData((page-1)*perPage,(page-1)*perPage+perPage,whichTab);
+      }
+    })
+
+  }
+
+  return (
+  <div className='gird'>
+    <div className='flex gap-6 max-w-[77rem] mx-auto border-b-2 border-[#192721] p-5 justify-center md:justify-normal'>
+      <a onClick={()=>{ if(whichTab!=1)switchTabs(null)}} className={`cursor-pointer transition-colors duration-300 ${whichTab === null ? 'text-white' : 'text-[#999F9D]'}`}>All NBA Teams</a>
+      <a onClick={()=>{ if(whichTab!=2)switchTabs(2023)}} className={`cursor-pointer transition-colors duration-300 ${whichTab === 2023 ? 'text-white' : 'text-[#999F9D]'}`}>2023 season teams</a>
     </div>
+    <div className='grid md:grid-cols-2 justify-center md:justify-start gap-8 mx-auto max-w-[77rem] pt-8'>
+    {mainData?.map((teamItem,index:number) => (
+      <Link key={index} href={`/team/${teamItem.season}/${teamItem.teamAbbr}`}>
+      <div  className='bg-[#192721] rounded'>
+        <div className='flex p-3 gap-2'>
+          <Image alt="logo" src="/lakers.png" width={100} height={100}/>
+          <div className='grid'>
+          <p>{teamItem.teamName}</p>
+          <p>Season:{teamItem.season}</p>
+          <p>Finished {teamItem.finish}</p>
+          </div>
+        </div>
+      </div>
+      </Link>
+       ))}
+    </div>
+    <div className='flex max-w-[77rem] mx-auto p-5 gap-2 justify-center md:justify-normal'>
+      <button onClick={()=>{if(pagination!=1)loadPrevPage()}} className='bg-[#192721] h-8 w-8 flex items-center justify-center rounded'>
+        <svg width="12" height="auto" viewBox="0 0 9 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8.15991 1.41L3.57991 6L8.15991 10.59L6.74991 12L0.749912 6L6.74991 0L8.15991 1.41Z" fill="white"/>
+        </svg> 
+      </button>
+
+      {Array.from({length:totalPages},(_,index)=>(
+        <button onClick={()=>loadCurrent(index+1)} key={index} className={`${pagination === index + 1 ? 'bg-darkGreen' : 'bg-black'} h-8 w-8 flex items-center justify-center rounded border-white border-[1px]`}>
+          {index+1}
+        </button>
+      ))}      
+      
+      <button onClick={()=>{if(pagination!=totalPages)loadNextPage()}} className='bg-[#192721] h-8 w-8 flex items-center justify-center rounded'> 
+        <svg width="12" height="auto" viewBox="0 0 9 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0.840088 1.41L5.42009 6L0.840088 10.59L2.25009 12L8.25009 6L2.25009 0L0.840088 1.41Z" fill="white"/>
+        </svg>
+      </button>
+    </div>
+  </div>
   );
 }
